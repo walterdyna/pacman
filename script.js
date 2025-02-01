@@ -65,10 +65,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   
-    // Power-ups: posicionados em duas células (se desejado, ajuste as posições)
+    // *** Atualização dos power-ups ***
+    // Os power-ups (bolinhas laranjas) foram reposicionados para células abertas.
+    // Neste exemplo, um power-up será posicionado na célula (1,1) e outro em (18,16),
+    // garantindo que fiquem longe das paredes (áreas azuis).
     let powerUps = [
-      { x: 10 * tileSize + tileSize / 2, y: 2 * tileSize + tileSize / 2, eaten: false },
-      { x: 10 * tileSize + tileSize / 2, y: 17 * tileSize + tileSize / 2, eaten: false }
+      { x: (1 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, eaten: false },
+      { x: (18 + 0.5) * tileSize, y: (16 + 0.5) * tileSize, eaten: false }
     ];
   
     // Variáveis globais do jogo
@@ -79,9 +82,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let isPoweredUp = false;
     let powerUpTimer = 0;
   
-    // O Pac-Man inicia em uma célula vazia – neste caso, escolhemos a célula (11,10) (lembre-se que o índice começa em 0)
+    // O Pac-Man inicia em uma célula vazia – neste exemplo, na célula (11,10)
     let pacman = {
-      // Escolhemos (col 11, row 10), pois no maze a posição (10) na linha 10 é '0'
       x: (11 + 0.5) * tileSize,
       y: (10 + 0.5) * tileSize,
       radius: tileSize / 2 - 2,
@@ -109,7 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Função que verifica colisão de um círculo (Pac-Man ou fantasma) com as paredes
     function checkWallCollision(x, y, radius) {
       for (let wall of wallCells) {
-        // Aproximação simples de colisão círculo-retângulo
         if (
           x + radius > wall.x &&
           x - radius < wall.x + wall.width &&
@@ -194,7 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
           powerUp.eaten = true;
           score += 50;
           isPoweredUp = true;
-          powerUpTimer = Date.now() + 10000; // 10 segundos de efeito
+          powerUpTimer = Date.now() + 10000;
         }
       });
     }
@@ -222,10 +223,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return maze[row][col] === "0";
     }
   
-    // Atualiza a movimentação dos fantasmas com “chase logic” quando estiverem centrados em uma célula
+    // Atualiza a movimentação dos fantasmas com lógica de perseguição
     function updateGhosts() {
       ghosts.forEach(ghost => {
-        // Calcula a célula atual do fantasma e a diferença para o centro
+        // Calcula a célula atual do fantasma
         const cellCol = Math.floor(ghost.x / tileSize);
         const cellRow = Math.floor(ghost.y / tileSize);
         const cellCenterX = cellCol * tileSize + tileSize / 2;
@@ -233,15 +234,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const deltaX = ghost.x - cellCenterX;
         const deltaY = ghost.y - cellCenterY;
   
-        // Se o fantasma está próximo do centro da célula (consideramos tolerância de 2 pixels)
+        // Se estiver centralizado na célula (tolerância de 2 pixels), escolha nova direção
         if (Math.abs(deltaX) < 2 && Math.abs(deltaY) < 2) {
-          // Determine as possíveis direções a partir deste centro, evitando voltar na direção oposta
           const possibleDirections = [];
-          // Para cada direção, verifique se a célula adjacente está aberta
-          // Excluímos a direção oposta à que o fantasma estava seguindo
           const opposites = { "right": "left", "left": "right", "up": "down", "down": "up" };
   
-          // Função para testar uma direção
           function testDirection(dir, dc, dr) {
             if (dir === opposites[ghost.direction]) return;
             const newCol = cellCol + dc;
@@ -255,7 +252,6 @@ document.addEventListener("DOMContentLoaded", () => {
           testDirection("left", -1, 0);
           testDirection("right", 1, 0);
   
-          // Se houver pelo menos uma direção possível, escolha aquela que minimiza a distância até o Pac-Man
           if (possibleDirections.length > 0) {
             let best = possibleDirections[0];
             let bestDist = Infinity;
@@ -280,13 +276,18 @@ document.addEventListener("DOMContentLoaded", () => {
         else if (ghost.direction === "up") newY -= ghost.speed;
         else if (ghost.direction === "down") newY += ghost.speed;
   
-        // Se não houver colisão com parede, atualiza; caso contrário, mantenha a posição
         if (!checkWallCollision(newX, newY, pacman.radius)) {
           ghost.x = newX;
           ghost.y = newY;
+        } else {
+          // Inverte a direção em caso de colisão
+          if (ghost.direction === "right") ghost.direction = "left";
+          else if (ghost.direction === "left") ghost.direction = "right";
+          else if (ghost.direction === "up") ghost.direction = "down";
+          else if (ghost.direction === "down") ghost.direction = "up";
         }
   
-        // Checa colisão entre Pac-Man e fantasma
+        // Verifica colisão entre Pac-Man e fantasma
         if (Math.hypot(pacman.x - ghost.x, pacman.y - ghost.y) < pacman.radius + 2) {
           if (isPoweredUp) {
             score += 200;
@@ -323,12 +324,10 @@ document.addEventListener("DOMContentLoaded", () => {
       drawPacman();
       drawGhosts();
   
-      // Desativa o efeito do power-up após 10 segundos
       if (isPoweredUp && Date.now() > powerUpTimer) {
         isPoweredUp = false;
       }
   
-      // Exibe a pontuação
       ctx.fillStyle = "white";
       ctx.font = "16px Arial";
       ctx.fillText("Pontuação: " + score, 10, 18);
@@ -368,12 +367,10 @@ document.addEventListener("DOMContentLoaded", () => {
   
     // Reinicia as variáveis do jogo
     function resetGame() {
-      // Reinicia Pac-Man para uma célula vazia (col 11, row 10)
       pacman.x = (11 + 0.5) * tileSize;
       pacman.y = (10 + 0.5) * tileSize;
       pacman.direction = "right";
   
-      // Reinicia os fantasmas (nos cantos)
       ghosts = [
         { x: (1 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, speed: 2, direction: "right", color: "red",    initX: (1 + 0.5) * tileSize, initY: (1 + 0.5) * tileSize },
         { x: (cols - 2 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, speed: 2, direction: "left", color: "pink",   initX: (cols - 2 + 0.5) * tileSize, initY: (1 + 0.5) * tileSize },
@@ -381,7 +378,6 @@ document.addEventListener("DOMContentLoaded", () => {
         { x: (cols - 2 + 0.5) * tileSize, y: (rows - 2 + 0.5) * tileSize, speed: 2, direction: "left", color: "orange", initX: (cols - 2 + 0.5) * tileSize, initY: (rows - 2 + 0.5) * tileSize }
       ];
   
-      // Reinicia pellets e power-ups
       pellets.forEach(p => p.eaten = false);
       powerUps.forEach(p => p.eaten = false);
       score = 0;
