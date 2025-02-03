@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Elementos da tela
+    // Elementos de tela já existentes
     const loginScreen = document.getElementById("login-screen");
     const gameContainer = document.getElementById("game-container");
     const usernameInput = document.getElementById("username");
@@ -8,16 +8,71 @@ document.addEventListener("DOMContentLoaded", () => {
     const restartBtn = document.getElementById("restart-btn");
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-  
-    // Configurações da grade/maze
+    
+    // Elementos do sistema de crédito
+    const creditAmountElem = document.getElementById("credit-amount");
+    const creditInput = document.getElementById("credit-input");
+    const addCreditBtn = document.getElementById("add-credit-btn");
+    
+    // Variável para armazenar os créditos do usuário
+    let userCredit = 0;
+    
+    // Função para atualizar a exibição dos créditos
+    function updateCreditDisplay() {
+      creditAmountElem.textContent = userCredit;
+    }
+    
+    // Simulação de processamento de pagamento (em um cenário real, aqui você integraria com um backend)
+    function processPayment(amount) {
+      return new Promise((resolve, reject) => {
+        // Simula um tempo de processamento de 2 segundos
+        setTimeout(() => {
+          // Para fins de demonstração, sempre aprovamos o pagamento
+          resolve(true);
+        }, 2000);
+      });
+    }
+    
+    // Evento para adicionar crédito
+    addCreditBtn.addEventListener("click", async () => {
+      const amount = parseFloat(creditInput.value);
+      if (isNaN(amount) || amount <= 0) {
+        alert("Por favor, insira um valor válido.");
+        return;
+      }
+      // Desabilita o botão durante o processamento
+      addCreditBtn.disabled = true;
+      addCreditBtn.textContent = "Processando...";
+      
+      try {
+        const result = await processPayment(amount);
+        if (result) {
+          userCredit += amount;
+          updateCreditDisplay();
+          alert(`Pagamento aprovado! Você recebeu ${amount} créditos.`);
+        } else {
+          alert("Pagamento recusado. Tente novamente.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Erro no processamento do pagamento.");
+      } finally {
+        addCreditBtn.disabled = false;
+        addCreditBtn.textContent = "Adicionar Crédito";
+        creditInput.value = "";
+      }
+    });
+    
+    // ============================================================
+    // A partir daqui segue o código do jogo (labirinto, movimento, etc.)
+    // ============================================================
+    
     const cols = 20;
     const rows = 20;
-    const tileSize = 20; // Cada célula terá 20x20 pixels
+    const tileSize = 20;
     canvas.width = cols * tileSize;
     canvas.height = rows * tileSize;
-  
-    // Definição do labirinto: '1' representa parede e '0' caminho
-    // Cada string representa uma linha da grade
+    
     const maze = [
       "11111111111111111111",
       "10000000001100000001",
@@ -40,8 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "10000000000000000001",
       "11111111111111111111"
     ];
-  
-    // Cria um array de retângulos para as paredes, com base no maze
+    
     let wallCells = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -50,8 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-  
-    // Cria pellets em cada célula vazia ("0")
+    
     let pellets = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -64,25 +117,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-  
-    // *** Atualização dos power-ups ***
-    // Os power-ups (bolinhas laranjas) foram reposicionados para células abertas.
-    // Neste exemplo, um power-up será posicionado na célula (1,1) e outro em (18,16),
-    // garantindo que fiquem longe das paredes (áreas azuis).
+    
+    // Power-ups reposicionados em células abertas (exemplo: células (1,1) e (18,16))
     let powerUps = [
       { x: (1 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, eaten: false },
       { x: (18 + 0.5) * tileSize, y: (16 + 0.5) * tileSize, eaten: false }
     ];
-  
-    // Variáveis globais do jogo
+    
     let gameLoopId;
     let gameOver = false;
     let username = "";
     let score = 0;
     let isPoweredUp = false;
     let powerUpTimer = 0;
-  
-    // O Pac-Man inicia em uma célula vazia – neste exemplo, na célula (11,10)
+    
     let pacman = {
       x: (11 + 0.5) * tileSize,
       y: (10 + 0.5) * tileSize,
@@ -99,16 +147,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     };
-  
-    // Os fantasmas iniciam nos cantos (em células vazias, se possível)
+    
     let ghosts = [
       { x: (1 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, speed: 2, direction: "right", color: "red",    initX: (1 + 0.5) * tileSize, initY: (1 + 0.5) * tileSize },
       { x: (cols - 2 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, speed: 2, direction: "left", color: "pink",   initX: (cols - 2 + 0.5) * tileSize, initY: (1 + 0.5) * tileSize },
       { x: (1 + 0.5) * tileSize, y: (rows - 2 + 0.5) * tileSize, speed: 2, direction: "right", color: "cyan",   initX: (1 + 0.5) * tileSize, initY: (rows - 2 + 0.5) * tileSize },
       { x: (cols - 2 + 0.5) * tileSize, y: (rows - 2 + 0.5) * tileSize, speed: 2, direction: "left", color: "orange", initX: (cols - 2 + 0.5) * tileSize, initY: (rows - 2 + 0.5) * tileSize }
     ];
-  
-    // Função que verifica colisão de um círculo (Pac-Man ou fantasma) com as paredes
+    
     function checkWallCollision(x, y, radius) {
       for (let wall of wallCells) {
         if (
@@ -122,16 +168,14 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return false;
     }
-  
-    // Desenha as paredes
+    
     function drawWalls() {
       ctx.fillStyle = "blue";
       wallCells.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
     }
-  
-    // Desenha os pellets
+    
     function drawPellets() {
       ctx.fillStyle = "white";
       pellets.forEach(pellet => {
@@ -142,8 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
-  
-    // Desenha os power-ups
+    
     function drawPowerUps() {
       ctx.fillStyle = "orange";
       powerUps.forEach(powerUp => {
@@ -154,8 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
-  
-    // Desenha o Pac-Man com animação da boca
+    
     function drawPacman() {
       const mouthAngle = 0.2 + 0.15 * Math.abs(Math.sin(Date.now() / 150));
       const startAngle = pacman.dirAngle + mouthAngle;
@@ -167,8 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.closePath();
       ctx.fill();
     }
-  
-    // Desenha os fantasmas
+    
     function drawGhosts() {
       ghosts.forEach(ghost => {
         ctx.fillStyle = isPoweredUp ? "blue" : ghost.color;
@@ -177,8 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.fill();
       });
     }
-  
-    // Verifica colisão do Pac-Man com pellets
+    
     function checkPelletCollision() {
       pellets.forEach(pellet => {
         if (!pellet.eaten && Math.hypot(pacman.x - pellet.x, pacman.y - pellet.y) < pacman.radius + 3) {
@@ -187,8 +227,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
-  
-    // Verifica colisão com power-ups
+    
     function checkPowerUpCollision() {
       powerUps.forEach(powerUp => {
         if (!powerUp.eaten && Math.hypot(pacman.x - powerUp.x, pacman.y - powerUp.y) < pacman.radius + 6) {
@@ -199,8 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
-  
-    // Atualiza a posição do Pac-Man (movimento contínuo)
+    
     function updatePacmanPosition() {
       let newX = pacman.x;
       let newY = pacman.y;
@@ -208,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (pacman.direction === "left") newX -= pacman.speed;
       else if (pacman.direction === "up") newY -= pacman.speed;
       else if (pacman.direction === "down") newY += pacman.speed;
-  
+    
       if (!checkWallCollision(newX, newY, pacman.radius)) {
         pacman.x = newX;
         pacman.y = newY;
@@ -216,29 +254,26 @@ document.addEventListener("DOMContentLoaded", () => {
       checkPelletCollision();
       checkPowerUpCollision();
     }
-  
-    // Função auxiliar: dado um par (col, row) de célula, verifica se a célula é aberta ("0")
+    
     function isCellOpen(col, row) {
       if (row < 0 || row >= rows || col < 0 || col >= cols) return false;
       return maze[row][col] === "0";
     }
-  
-    // Atualiza a movimentação dos fantasmas com lógica de perseguição
+    
+    // Lógica de movimentação dos fantasmas com perseguição aprimorada:
     function updateGhosts() {
       ghosts.forEach(ghost => {
-        // Calcula a célula atual do fantasma
         const cellCol = Math.floor(ghost.x / tileSize);
         const cellRow = Math.floor(ghost.y / tileSize);
         const cellCenterX = cellCol * tileSize + tileSize / 2;
         const cellCenterY = cellRow * tileSize + tileSize / 2;
         const deltaX = ghost.x - cellCenterX;
         const deltaY = ghost.y - cellCenterY;
-  
-        // Se estiver centralizado na célula (tolerância de 2 pixels), escolha nova direção
+    
         if (Math.abs(deltaX) < 2 && Math.abs(deltaY) < 2) {
           const possibleDirections = [];
           const opposites = { "right": "left", "left": "right", "up": "down", "down": "up" };
-  
+    
           function testDirection(dir, dc, dr) {
             if (dir === opposites[ghost.direction]) return;
             const newCol = cellCol + dc;
@@ -251,7 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
           testDirection("down", 0, 1);
           testDirection("left", -1, 0);
           testDirection("right", 1, 0);
-  
+    
           if (possibleDirections.length > 0) {
             let best = possibleDirections[0];
             let bestDist = Infinity;
@@ -267,27 +302,24 @@ document.addEventListener("DOMContentLoaded", () => {
             ghost.direction = best.dir;
           }
         }
-  
-        // Move o fantasma de acordo com sua direção
+    
         let newX = ghost.x;
         let newY = ghost.y;
         if (ghost.direction === "right") newX += ghost.speed;
         else if (ghost.direction === "left") newX -= ghost.speed;
         else if (ghost.direction === "up") newY -= ghost.speed;
         else if (ghost.direction === "down") newY += ghost.speed;
-  
+    
         if (!checkWallCollision(newX, newY, pacman.radius)) {
           ghost.x = newX;
           ghost.y = newY;
         } else {
-          // Inverte a direção em caso de colisão
           if (ghost.direction === "right") ghost.direction = "left";
           else if (ghost.direction === "left") ghost.direction = "right";
           else if (ghost.direction === "up") ghost.direction = "down";
           else if (ghost.direction === "down") ghost.direction = "up";
         }
-  
-        // Verifica colisão entre Pac-Man e fantasma
+    
         if (Math.hypot(pacman.x - ghost.x, pacman.y - ghost.y) < pacman.radius + 2) {
           if (isPoweredUp) {
             score += 200;
@@ -299,8 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
-  
-    // Encerra o jogo e exibe o botão "Reiniciar"
+    
     function endGame() {
       cancelAnimationFrame(gameLoopId);
       gameOver = true;
@@ -312,8 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
         restartBtn.style.display = "block";
       }, 100);
     }
-  
-    // Loop principal do jogo
+    
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawWalls();
@@ -323,29 +353,27 @@ document.addEventListener("DOMContentLoaded", () => {
       updateGhosts();
       drawPacman();
       drawGhosts();
-  
+    
       if (isPoweredUp && Date.now() > powerUpTimer) {
         isPoweredUp = false;
       }
-  
+    
       ctx.fillStyle = "white";
       ctx.font = "16px Arial";
       ctx.fillText("Pontuação: " + score, 10, 18);
-  
+    
       if (!gameOver) {
         gameLoopId = requestAnimationFrame(gameLoop);
       }
     }
-  
-    // Eventos de teclado para o controle do Pac-Man
+    
     document.addEventListener("keydown", (event) => {
       if (event.key === "ArrowRight") pacman.direction = "right";
       if (event.key === "ArrowLeft") pacman.direction = "left";
       if (event.key === "ArrowUp") pacman.direction = "up";
       if (event.key === "ArrowDown") pacman.direction = "down";
     });
-  
-    // Inicia o jogo ao clicar em "Entrar"
+    
     enterBtn.addEventListener("click", () => {
       username = usernameInput.value.trim();
       if (username === "") {
@@ -357,27 +385,25 @@ document.addEventListener("DOMContentLoaded", () => {
       resetGame();
       gameLoop();
     });
-  
-    // Reinicia o jogo ao clicar em "Reiniciar"
+    
     restartBtn.addEventListener("click", () => {
       resetGame();
       gameOver = false;
       gameLoop();
     });
-  
-    // Reinicia as variáveis do jogo
+    
     function resetGame() {
       pacman.x = (11 + 0.5) * tileSize;
       pacman.y = (10 + 0.5) * tileSize;
       pacman.direction = "right";
-  
+    
       ghosts = [
         { x: (1 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, speed: 2, direction: "right", color: "red",    initX: (1 + 0.5) * tileSize, initY: (1 + 0.5) * tileSize },
         { x: (cols - 2 + 0.5) * tileSize, y: (1 + 0.5) * tileSize, speed: 2, direction: "left", color: "pink",   initX: (cols - 2 + 0.5) * tileSize, initY: (1 + 0.5) * tileSize },
         { x: (1 + 0.5) * tileSize, y: (rows - 2 + 0.5) * tileSize, speed: 2, direction: "right", color: "cyan",   initX: (1 + 0.5) * tileSize, initY: (rows - 2 + 0.5) * tileSize },
         { x: (cols - 2 + 0.5) * tileSize, y: (rows - 2 + 0.5) * tileSize, speed: 2, direction: "left", color: "orange", initX: (cols - 2 + 0.5) * tileSize, initY: (rows - 2 + 0.5) * tileSize }
       ];
-  
+    
       pellets.forEach(p => p.eaten = false);
       powerUps.forEach(p => p.eaten = false);
       score = 0;
